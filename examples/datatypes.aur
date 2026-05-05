@@ -1,0 +1,10 @@
+Int    age     = 25;
+Float  pi      = 3.14159;
+String name    = "Aurora";
+Bool   awesome = true;
+auto   mystery = null;
+print("Name   : " + name);
+print("Age    : " + str(age));
+print("Pi     : " + str(pi));
+print("Awesome: " + str(awesome));
+print("Mystery: " + str(mystery));

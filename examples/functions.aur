@@ -1,0 +1,16 @@
+func greet(String name): String {
+    return "Hello, " + name + "!";
+}
+func factorial(Int n): Int {
+    if n <= 1 { return 1; }
+    return n * factorial(n - 1);
+}
+func fibonacci(Int n): Int {
+    if n <= 1 { return n; }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+print(greet("Jatan"));
+for i in 1..8 {
+    print("fib(" + str(i) + ") = " + str(fibonacci(i)));
+}
+print("10! = " + str(factorial(10)));

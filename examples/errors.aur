@@ -1,0 +1,8 @@
+func safeDivide(Int a, Int b): String {
+    if b == 0 {
+        return "Error: cannot divide by zero";
+    }
+    return str(a / b);
+}
+print(safeDivide(10, 2));
+print(safeDivide(10, 0));

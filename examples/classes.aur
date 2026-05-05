@@ -1,0 +1,29 @@
+class Animal {
+    func init(String name, String sound) {
+        self.name  := name;
+        self.sound := sound;
+    }
+    func speak() {
+        print(self.name + " says " + self.sound + "!");
+    }
+}
+class Dog {
+    func init(String name) {
+        self.name   := name;
+        self.tricks := [];
+    }
+    func learnTrick(String trick) {
+        self.tricks.push(trick);
+    }
+    func showTricks() {
+        print(self.name + " knows: " + str(self.tricks));
+    }
+}
+auto cat = Animal("Whiskers", "meow");
+auto cow = Animal("Bessie", "moo");
+cat.speak();
+cow.speak();
+auto dog = Dog("Rex");
+dog.learnTrick("sit");
+dog.learnTrick("fetch");
+dog.showTricks();

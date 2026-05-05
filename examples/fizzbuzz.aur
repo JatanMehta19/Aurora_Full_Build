@@ -1,0 +1,9 @@
+for i in 1..20 {
+    Bool fb = i % 15 == 0;
+    Bool f  = i % 3  == 0;
+    Bool b  = i % 5  == 0;
+    if fb       { print("FizzBuzz"); }
+    else if f   { print("Fizz"); }
+    else if b   { print("Buzz"); }
+    else        { print(str(i)); }
+}
