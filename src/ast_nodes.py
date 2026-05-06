@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Any
 
-class ASTNode: pass
+class ASTNode: 
+    """Base class for interpreter's type-based dispatch (eval_XXX/exec_XXX)."""
+    pass
 
 @dataclass
 class IntegerLiteral(ASTNode): value: int
@@ -16,7 +18,7 @@ class NullLiteral(ASTNode): pass
 @dataclass
 class ListLiteral(ASTNode): elements: List[ASTNode]
 @dataclass
-class MapLiteral(ASTNode): pairs: list  # list of (key_node, val_node)
+class MapLiteral(ASTNode): pairs: list  # (key_node, val_node) tuples
 @dataclass
 class Identifier(ASTNode): name: str
 @dataclass

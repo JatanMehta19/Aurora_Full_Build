@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import scrolledtext, font, ttk
 from aurora import run_source
 
+# Catppuccin Mocha palette
 BG='#1e1e2e'; BG2='#313244'; BG3='#181825'
 FG='#cdd6f4'; FG2='#6c7086'
 PURPLE='#cba6f7'; BLUE='#89b4fa'; CYAN='#89dceb'
@@ -13,6 +14,7 @@ GREEN='#a6e3a1'; RED='#f38ba8'; YELLOW='#f9e2af'; PEACH='#fab387'
 def load_examples():
     ex = {}
     edir = os.path.join(os.path.dirname(__file__), 'examples')
+    # fixed display order for the combo-box
     order = ['hello','datatypes','control','functions','classes','errors','fizzbuzz']
     labels = ['1 Hello World','2 Data Types','3 Control Flow',
               '4 Functions & Recursion','5 Classes','6 Error Handling','7 FizzBuzz']
@@ -25,6 +27,7 @@ def load_examples():
 
 EXAMPLES = load_examples()
 
+# Aurora keywords for syntax highlighting
 KW_RE = re.compile(
     r'\b(Int|Float|String|Bool|List|Map|auto|mut|func|class|if|else|while|for|in|'
     r'return|break|import|print|true|false|null|and|or|not)\b'
@@ -57,8 +60,8 @@ class AuroraIDE(tk.Tk):
                  font=self.lf).pack(side=tk.LEFT, padx=(20,4))
         self.ex_var = tk.StringVar()
         cb = ttk.Combobox(top, textvariable=self.ex_var,
-                          values=list(EXAMPLES.keys()), width=30,
-                          state='readonly', font=self.lf)
+                           values=list(EXAMPLES.keys()), width=30,
+                           state='readonly', font=self.lf)
         cb.pack(side=tk.LEFT)
         cb.bind('<<ComboboxSelected>>', lambda e: self._load(self.ex_var.get()))
         tk.Button(top, text='\u25b6  Run  (F5)', command=self.run_code,
@@ -108,6 +111,7 @@ class AuroraIDE(tk.Tk):
             font=font.Font(family='Courier New', size=12, slant='italic'))
 
     def _idx(self, pos, text):
+        # Convert character offset to tkinter "line.col" index
         line = text[:pos].count('\n') + 1
         col  = pos - text[:pos].rfind('\n') - 1
         return f'{line}.{col}'
@@ -119,7 +123,7 @@ class AuroraIDE(tk.Tk):
         text = ed.get('1.0', tk.END)
         for m in re.finditer(r'//[^\n]*', text):
             ed.tag_add('cmt', self._idx(m.start(),text), self._idx(m.end(),text))
-        for m in re.finditer(r'"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"', text):
+        for m in re.finditer(r'"[^"\\]*(?:\\.[^"\\]*)*"', text):
             ed.tag_add('str_t', self._idx(m.start(),text), self._idx(m.end(),text))
         for m in re.finditer(r'\b\d+(\.\d+)?\b', text):
             ed.tag_add('num', self._idx(m.start(),text), self._idx(m.end(),text))
@@ -141,6 +145,7 @@ class AuroraIDE(tk.Tk):
         source = self.editor.get('1.0', tk.END)
         self.clear_out()
         lines = []
+        # Capture output via callback since run_source prints to a function
         run_source(source, output_fn=lambda s: lines.append(s))
         self.output.config(state=tk.NORMAL)
         for line in lines:

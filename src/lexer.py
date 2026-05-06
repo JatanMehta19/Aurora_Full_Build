@@ -23,6 +23,7 @@ class TokenType(Enum):
     LBRACKET = auto(); RBRACKET = auto()
     EOF = auto()
 
+# Maps reserved keywords to their token types; anything else is an IDENTIFIER
 KEYWORDS = {
     "print": TokenType.PRINT, "if": TokenType.IF, "else": TokenType.ELSE,
     "while": TokenType.WHILE, "for": TokenType.FOR, "in": TokenType.IN,
@@ -61,7 +62,7 @@ class Lexer:
 
     def advance(self):
         ch = self.source[self.pos]; self.pos += 1
-        if ch == "\n": self.line += 1
+        if ch == "\n": self.line += 1  # keep line count accurate for error messages
         return ch
 
     def skip(self):
@@ -69,7 +70,7 @@ class Lexer:
             if self.current() in " \t\r\n":
                 self.advance()
             elif self.current() == "/" and self.peek() == "/":
-                while self.current() and self.current() != "\n": self.advance()
+                while self.current() and self.current() != "\n": self.advance()  # skip // comments
             else:
                 break
 
@@ -93,7 +94,7 @@ class Lexer:
             else:
                 res.append(self.advance())
         if self.current() is None: raise LexerError("Unterminated string", ln)
-        self.advance()
+        self.advance()  # consume closing quote
         return Token(TokenType.STRING, "".join(res), ln)
 
     def read_ident(self):

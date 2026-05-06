@@ -5,7 +5,7 @@ class AuroraRuntimeError(Exception):
 
 class Environment:
     def __init__(self, parent=None):
-        self.vars = {}
+        self.vars = {}  # name -> {value, mutable}
         self.parent = parent
 
     def define(self, name, value, mutable=True):

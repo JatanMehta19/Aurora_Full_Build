@@ -2,19 +2,25 @@ from .ast_nodes import *
 from .environment import Environment, AuroraRuntimeError
 
 class ReturnException(Exception):
+    """Unwinds call stack for return statements."""
     def __init__(self, v): self.value = v
 
-class BreakException(Exception): pass
+class BreakException(Exception): 
+    """Unwinds loop for break statements."""
+    pass
 
 class AuroraRange:
+    """Represents a range expression (start..end) for for loops."""
     def __init__(self, s, e): self.start=s; self.end=e
 
 class BuiltinFunction:
+    """Wraps native Python functions as Aurora builtins."""
     def __init__(self, name, fn): self.name=name; self.fn=fn
     def call(self, args): return self.fn(args)
     def __repr__(self): return f"<builtin {self.name}>"
 
 class AuroraFunction:
+    """User-defined function with closure environment."""
     def __init__(self, decl, closure): self.declaration=decl; self.closure=closure
     def call(self, args, interp):
         env = Environment(self.closure)
@@ -25,6 +31,7 @@ class AuroraFunction:
         except ReturnException as r: return r.value
         return None
     def bind(self, inst):
+        """Creates a bound method with 'self' in its environment."""
         env = Environment(self.closure); env.define("self", inst, mutable=False)
         return BoundMethod(self.declaration, env)
     def __repr__(self): return f"<func {self.declaration.name}>"
@@ -33,9 +40,11 @@ class BoundMethod(AuroraFunction):
     def __repr__(self): return f"<method {self.declaration.name}>"
 
 class AuroraClass:
+    """Represents a class object with methods and closure."""
     def __init__(self, name, methods, closure):
         self.name=name; self.method_decls={m.name:m for m in methods}; self.closure=closure
     def call(self, args, interp):
+        """Instantiate the class (calling it creates an instance)."""
         inst = AuroraInstance(self)
         init = self.method_decls.get("init")
         if init: AuroraFunction(init, self.closure).bind(inst).call(args, interp)
@@ -43,6 +52,7 @@ class AuroraClass:
     def __repr__(self): return f"<class {self.name}>"
 
 class AuroraInstance:
+    """Represents an instance of an Aurora class."""
     def __init__(self, klass): self.klass=klass; self.fields={}
     def get(self, name):
         if name in self.fields: return self.fields[name]
@@ -59,6 +69,7 @@ class Interpreter:
         self._builtins()
 
     def _builtins(self):
+        """Registers built-in functions (len, type, int, float, str, bool)."""
         def bl(n,f): self.global_env.define(n, BuiltinFunction(n,f), mutable=False)
         bl("len",   lambda a: len(a[0]) if len(a)==1 and isinstance(a[0],(str,list,dict)) else (_ for _ in ()).throw(AuroraRuntimeError("len() expects 1 collection arg")))
         bl("type",  lambda a: self._tname(a[0]) if len(a)==1 else (_ for _ in ()).throw(AuroraRuntimeError("type() expects 1 arg")))
@@ -68,6 +79,7 @@ class Interpreter:
         bl("bool",  lambda a: bool(a[0]) if len(a)==1 else (_ for _ in ()).throw(AuroraRuntimeError("bool() expects 1 arg")))
 
     def _tname(self, v):
+        """Maps Python types to Aurora type names (Int, Float, String, etc.)."""
         if v is None: return "Null"
         if isinstance(v, bool): return "Bool"
         if isinstance(v, int): return "Int"
@@ -80,6 +92,7 @@ class Interpreter:
         return "Function"
 
     def _str(self, v):
+        """Converts a value to its Aurora string representation."""
         if v is None: return "null"
         if isinstance(v, bool): return "true" if v else "false"
         if isinstance(v, list): return "[" + ", ".join(self._str(x) for x in v) + "]"
@@ -89,6 +102,7 @@ class Interpreter:
         return str(v)
 
     def _check_type(self, tname, val, name):
+        """Validates that a value matches its declared type (for var declarations)."""
         ok = {"Int": lambda v: isinstance(v,int) and not isinstance(v,bool),
               "Float": lambda v: isinstance(v,(int,float)) and not isinstance(v,bool),
               "String": lambda v: isinstance(v,str),
@@ -105,15 +119,19 @@ class Interpreter:
         for s in stmts: self.exec(s, env)
 
     def exec(self, node, env):
+        """Dispatches to exec_<NodeType> method."""
         fn = getattr(self, f"exec_{type(node).__name__}", None)
         if fn: return fn(node, env)
         raise AuroraRuntimeError(f"Unknown node: {type(node).__name__}")
 
+    # ── Statement executors ────────────────────────────────────────────────
     def exec_VarDecl(self, n, env):
+        """Handles VarDecl: evaluates initializer, checks type, defines variable."""
         v = self.eval(n.initializer, env); self._check_type(n.type_name, v, n.name)
         env.define(n.name, v, mutable=n.mutable)
 
     def exec_AssignStatement(self, n, env):
+        """Handles assignment: supports Identifier, IndexAccess, and PropertyAccess targets."""
         v = self.eval(n.value, env); t = n.target
         if isinstance(t, Identifier): env.assign(t.name, v)
         elif isinstance(t, IndexAccess):
@@ -134,12 +152,14 @@ class Interpreter:
     def exec_ExprStatement(self, n, env): self.eval(n.expression, env)
 
     def exec_IfStatement(self, n, env):
+        """Handles if/else: condition must evaluate to Bool."""
         cond = self.eval(n.condition, env)
         if not isinstance(cond, bool): raise AuroraRuntimeError(f"if condition must be Bool, got {self._tname(cond)}")
         if cond: self.exec_block(n.then_block, Environment(env))
         elif n.else_block is not None: self.exec_block(n.else_block, Environment(env))
 
     def exec_WhileStatement(self, n, env):
+        """Handles while loops: condition must be Bool, supports break."""
         while True:
             cond = self.eval(n.condition, env)
             if not isinstance(cond, bool): raise AuroraRuntimeError(f"while condition must be Bool")
@@ -148,6 +168,7 @@ class Interpreter:
             except BreakException: break
 
     def exec_ForStatement(self, n, env):
+        """Handles for-in loops: iterates over lists, strings, dicts, or AuroraRange."""
         it = self.eval(n.iterable, env)
         if isinstance(it, AuroraRange): items = list(range(it.start, it.end+1))
         elif isinstance(it, (list,str)): items = list(it)
@@ -158,15 +179,15 @@ class Interpreter:
             try: self.exec_block(n.body, child)
             except BreakException: break
 
-    def exec_ReturnStatement(self, n, env):
-        raise ReturnException(self.eval(n.value, env) if n.value else None)
+    def exec_ReturnStatement(self, n, env): raise ReturnException(self.eval(n.value, env) if n.value else None)
     def exec_BreakStatement(self, n, env): raise BreakException()
     def exec_ImportStatement(self, n, env): self.out(f"// module '{n.module_name}' imported")
     def exec_FuncDecl(self, n, env): env.define(n.name, AuroraFunction(n, env), mutable=False)
     def exec_ClassDecl(self, n, env): env.define(n.name, AuroraClass(n.name, n.methods, env), mutable=False)
 
-    # ── Evaluators ──────────────────────────────────────────────────────────
+    # ── Expression evaluators ──────────────────────────────────────────────
     def eval(self, node, env):
+        """Dispatches to eval_<NodeType> method."""
         fn = getattr(self, f"eval_{type(node).__name__}", None)
         if fn: return fn(node, env)
         raise AuroraRuntimeError(f"Unknown expr node: {type(node).__name__}")
@@ -181,15 +202,16 @@ class Interpreter:
     def eval_Identifier(self,n,e): return e.get(n.name)
 
     def eval_BinaryExpression(self, n, env):
+        """Handles binary ops: and/or (short-circuit), arithmetic, comparison, range (..)."""
         op = n.operator
         if op == "and":
             l = self.eval(n.left, env)
             if not isinstance(l,bool): raise AuroraRuntimeError(f"'and' needs Bool, got {self._tname(l)}")
-            return l and self.eval(n.right, env)
+            return l and self.eval(n.right, env)  # short-circuit
         if op == "or":
             l = self.eval(n.left, env)
             if not isinstance(l,bool): raise AuroraRuntimeError(f"'or' needs Bool, got {self._tname(l)}")
-            return l or self.eval(n.right, env)
+            return l or self.eval(n.right, env)  # short-circuit
         l = self.eval(n.left, env); r = self.eval(n.right, env)
         if op == "+":
             if isinstance(l,str) and isinstance(r,str): return l+r
@@ -221,10 +243,12 @@ class Interpreter:
         raise AuroraRuntimeError(f"Unknown operator {op}")
 
     def _num(self, l, r, op):
+        """Type checking helper for numeric operators (excludes bool)."""
         if not (isinstance(l,(int,float)) and isinstance(r,(int,float)) and not isinstance(l,bool) and not isinstance(r,bool)):
             raise AuroraRuntimeError(f"Operator '{op}' needs numbers, got {self._tname(l)} and {self._tname(r)}")
 
     def eval_UnaryExpression(self, n, env):
+        """Handles unary - (negation) and not (logical negation)."""
         v = self.eval(n.operand, env)
         if n.operator == "-":
             if not isinstance(v,(int,float)) or isinstance(v,bool): raise AuroraRuntimeError(f"Unary - needs number")
@@ -234,6 +258,7 @@ class Interpreter:
             return not v
 
     def eval_CallExpression(self, n, env):
+        """Handles function calls: supports user functions, builtins, and class instantiation."""
         callee = self.eval(n.callee, env)
         args   = [self.eval(a, env) for a in n.args]
         if isinstance(callee, (AuroraFunction, BoundMethod)): return callee.call(args, self)
@@ -242,6 +267,7 @@ class Interpreter:
         raise AuroraRuntimeError(f"Cannot call {self._tname(callee)}")
 
     def eval_IndexAccess(self, n, env):
+        """Handles indexing: supports lists, dicts, and strings."""
         obj=self.eval(n.obj,env); idx=self.eval(n.index,env)
         if isinstance(obj,list):
             if not isinstance(idx,int) or isinstance(idx,bool): raise AuroraRuntimeError("List index must be Int")
@@ -257,6 +283,7 @@ class Interpreter:
         raise AuroraRuntimeError(f"Cannot index {self._tname(obj)}")
 
     def eval_PropertyAccess(self, n, env):
+        """Handles property/method access: supports instances and built-in type methods."""
         obj = self.eval(n.obj, env); nm = n.name
         if isinstance(obj, AuroraInstance): return obj.get(nm)
         if isinstance(obj, list): return self._list_method(obj, nm)
@@ -265,6 +292,7 @@ class Interpreter:
         raise AuroraRuntimeError(f"No property '{nm}' on {self._tname(obj)}")
 
     def _list_method(self, lst, nm):
+        """Returns bound methods for List instances (push, pop, len, contains, get)."""
         if nm=="push": return BuiltinFunction("push", lambda a: lst.append(a[0]) or None)
         if nm=="pop": return BuiltinFunction("pop", lambda a: lst.pop() if lst else (_ for _ in ()).throw(AuroraRuntimeError("pop on empty list")))
         if nm=="len": return BuiltinFunction("len", lambda a: len(lst))
@@ -273,6 +301,7 @@ class Interpreter:
         raise AuroraRuntimeError(f"List has no method '{nm}'")
 
     def _str_method(self, s, nm):
+        """Returns bound methods for String instances (len, upper, lower, contains, split)."""
         if nm=="len": return BuiltinFunction("len", lambda a: len(s))
         if nm=="upper": return BuiltinFunction("upper", lambda a: s.upper())
         if nm=="lower": return BuiltinFunction("lower", lambda a: s.lower())
@@ -281,6 +310,7 @@ class Interpreter:
         raise AuroraRuntimeError(f"String has no method '{nm}'")
 
     def _map_method(self, m, nm):
+        """Returns bound methods for Map instances (keys, values, contains, get)."""
         if nm=="keys": return BuiltinFunction("keys", lambda a: list(m.keys()))
         if nm=="values": return BuiltinFunction("values", lambda a: list(m.values()))
         if nm=="contains": return BuiltinFunction("contains", lambda a: a[0] in m)
